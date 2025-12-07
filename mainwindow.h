@@ -25,12 +25,15 @@ private slots:
     void on_btnStats_clicked();
     void on_btnSave_clicked();
 
+    void on_btnImportTxt_clicked();
+
 private:
     Ui::MainWindow *ui;
     StudentManager studentManager;
 
     void refreshStudentTable();
     void showStudentInfo(const Student& stu, const QString& title = "学生信息");
+    void saveDataToFile();
 };
 
 #endif // MAINWINDOW_H

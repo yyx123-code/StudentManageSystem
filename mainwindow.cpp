@@ -14,16 +14,34 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setWindowTitle("学生信息管理系统");
 
-    /*设置表格列宽*/
+    // 设置表格
     ui->tableStudents->setColumnCount(4);
     QStringList headers;
     headers << "姓名" << "学号" << "成绩" << "等级";
     ui->tableStudents->setHorizontalHeaderLabels(headers);
-    ui->tableStudents->horizontalHeader()->setStretchLastSection(true);
+
+    // ⭐ 新增：程序启动时自动加载数据
+    try {
+        studentManager.loadFromBinaryFile("students.dat");
+        refreshStudentTable();
+        ui->statusbar->showMessage(QString("已加载 %1 名学生数据").arg(studentManager.getStudentCount()), 3000);
+    } catch (const std::exception& e) {
+        // 文件不存在是正常的，不显示错误
+        ui->statusbar->showMessage("欢迎使用学生信息管理系统", 3000);
+    }
 }
 
 MainWindow::~MainWindow()
 {
+    // 程序关闭时自动保存
+    try {
+        if (studentManager.getStudentCount() > 0) {
+            studentManager.saveToBinaryFile("students.dat");
+            qDebug() << "程序关闭，数据已自动保存";
+        }
+    } catch (...) {
+        // 忽略析构函数中的异常
+    }
     delete ui;
 }
 
@@ -63,6 +81,7 @@ void MainWindow::on_btnAdd_clicked()
         ui->txtScore->clear();
 
         ui->statusbar->showMessage(QString("添加成功！当前共 %1 名学生").arg(studentManager.getStudentCount()), 3000);
+        saveDataToFile();
 
     } catch (const std::exception& e) {
         QMessageBox::warning(this, "错误", QString::fromStdString(e.what()));
@@ -102,6 +121,7 @@ void MainWindow::on_btnDelete_clicked()
         if (studentManager.deleteStudent(idToDelete)) {
             refreshStudentTable();
             ui->statusbar->showMessage(QString("成功删除学号 %1").arg(idToDelete), 3000);
+            saveDataToFile();
         } else {
             QMessageBox::warning(this, "错误", "未找到该学号的学生");
         }
@@ -214,38 +234,81 @@ void MainWindow::on_btnSave_clicked()
         return;
     }
 
-    /*提供保存选项*/
+    // 提供更多保存选项
     QStringList formats;
-    formats << "二进制文件 (*.dat)" << "文本文件 (*.txt)" << "两种格式都保存";
+    formats << "保存到二进制文件 (.dat)"
+            << "导出到文本文件 (.txt)"
+            << "另存为二进制文件..."
+            << "另存为文本文件...";
 
     bool ok;
-    QString choice = QInputDialog::getItem(this, "保存格式", "选择保存格式:",
+    QString choice = QInputDialog::getItem(this, "保存选项", "选择操作:",
                                            formats, 0, false, &ok);
     if (!ok) return;
 
     try {
-        QString message;
-
-        if (choice.contains("二进制") || choice.contains("都保存")) {
+        if (choice.contains("二进制文件 (.dat)")) {
+            //默认保存
             studentManager.saveToBinaryFile("students.dat");
-            message += "已保存到 students.dat\n";
-        }
+            ui->statusbar->showMessage("数据已保存到 students.dat", 3000);
 
-        if (choice.contains("文本") || choice.contains("都保存")) {
-            studentManager.saveToTextFile("students.txt");
-            message += "已保存到 students.txt\n";
-        }
+        } else if (choice.contains("文本文件 (.txt)")) {
+            //导出为文本
+            studentManager.saveToTextFile("students_export.txt");
+            ui->statusbar->showMessage("数据已导出到 students_export.txt", 3000);
 
-        if (choice.contains("都保存")) {
-            ui->statusbar->showMessage("数据已保存到 students.dat 和 students.txt", 3000);
-            QMessageBox::information(this, "保存成功", message);
-        } else {
-            ui->statusbar->showMessage(message.trimmed(), 3000);
+        } else if (choice.contains("另存为二进制文件")) {
+            //另存为二进制
+            QString fileName = QFileDialog::getSaveFileName(this,
+                                                            "另存为二进制文件", "", "二进制文件 (*.dat)");
+            if (!fileName.isEmpty()) {
+                studentManager.saveToBinaryFile(fileName.toStdString());
+                ui->statusbar->showMessage("数据已保存", 3000);
+            }
+
+        } else if (choice.contains("另存为文本文件")) {
+            //另存为文本
+            QString fileName = QFileDialog::getSaveFileName(this,
+                                                            "另存为文本文件", "", "文本文件 (*.txt)");
+            if (!fileName.isEmpty()) {
+                studentManager.saveToTextFile(fileName.toStdString());
+                ui->statusbar->showMessage("数据已保存", 3000);
+            }
         }
 
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "保存失败",
                               QString("保存文件时出错:\n%1").arg(QString::fromStdString(e.what())));
+    }
+}
+
+void MainWindow::on_btnImportTxt_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this,
+                                                    "选择文本文件", "", "文本文件 (*.txt)");
+
+    if (fileName.isEmpty()) return;
+
+    try {
+        // 从文本文件加载
+        studentManager.loadFromTextFile(fileName.toStdString());
+
+        refreshStudentTable();
+
+        ui->statusbar->showMessage(
+            QString("从 %1 导入 %2 名学生成功")
+                .arg(QFileInfo(fileName).fileName())
+                .arg(studentManager.getStudentCount()),
+            5000);
+
+        // 自动保存到二进制文件
+        saveDataToFile();
+
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "导入失败",
+                              QString("导入文件时出错:\n%1\n\n"
+                                      "请确保文件格式正确，每行格式为:\n"
+                                      "姓名 学号 成绩 等级").arg(QString::fromStdString(e.what())));
     }
 }
 
@@ -289,4 +352,24 @@ void MainWindow::showStudentInfo(const Student& stu, const QString& title)
                        .arg("学生信息显示完整");  // 这里可以调用 stu.toString() 如果有的话
 
     QMessageBox::information(this, title, info);
+}
+
+void MainWindow::saveDataToFile()
+{
+    if (studentManager.getStudentCount() == 0) {
+        return;//没有数据不保存
+    }
+
+    try {
+        //保存到二进制文件
+        studentManager.saveToBinaryFile("students.dat");
+
+        //可选：同时保存到文本文件（便于查看）
+        studentManager.saveToTextFile("students_backup.txt");
+
+        //不显示提示，避免干扰用户
+    } catch (const std::exception& e) {
+        //静默失败，避免频繁弹窗
+        qDebug() << "保存文件失败:" << e.what();
+    }
 }
