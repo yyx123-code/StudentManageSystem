@@ -1,11 +1,10 @@
 #include "student.h"
-#include <algorithm>  // for sort
+#include <algorithm>  //排序算法
 
-// ========== 构造函数/析构函数 ==========
-
+/*构造函数&析构函数*/
 Student::Student() : name(""), id(0), score(0.0f), level('E') {}
 
-Student::Student(const std::string& name, int id, float score)
+Student::Student(const std::string& name, long long id, float score)
     : name(name), id(id), score(score) {
     calculateLevel();
     validateData();
@@ -15,11 +14,10 @@ Student::Student(const Student& other)
     : name(other.name), id(other.id), score(other.score), level(other.level) {}
 
 Student::~Student() {
-    // 如果有动态内存，在这里释放
+    //如果有动态内存，在这里释放
 }
 
-// ========== 运算符重载 ==========
-
+/*运算符重载*/
 Student& Student::operator=(const Student& other) {
     if (this != &other) {
         name = other.name;
@@ -31,15 +29,15 @@ Student& Student::operator=(const Student& other) {
 }
 
 bool Student::operator==(const Student& other) const {
-    return id == other.id;  // 按学号比较
+    return id == other.id;   //学号唯一，防止重复
 }
 
 bool Student::operator!=(const Student& other) const {
-    return !(*this == other);
+    return !(*this == other);//复用相等运算符
 }
 
 bool Student::operator<(const Student& other) const {
-    return id < other.id;  // 按学号排序
+    return id < other.id;    //按学号排序
 }
 
 std::ostream& operator<<(std::ostream& os, const Student& stu) {
@@ -68,8 +66,7 @@ std::istream& operator>>(std::istream& is, Student& stu) {
     return is;
 }
 
-// ========== 内部方法 ==========
-
+/*内部方法*/
 void Student::calculateLevel() {
     if (score >= 90) level = 'A';
     else if (score >= 80) level = 'B';
@@ -90,21 +87,19 @@ void Student::validateData() const {
     }
 }
 
-// ========== 虚函数 ==========
-
+/*虚函数*/
 void Student::display() const {
     std::cout << *this << std::endl;
 }
 
-// ========== Getter/Setter ==========
-
+/*Getter&Setter*/
 std::string Student::getName() const { return name; }
 void Student::setName(const std::string& name) {
     this->name = name;
 }
 
-int Student::getId() const { return id; }
-void Student::setId(int id) {
+long long Student::getId() const { return id; }
+void Student::setId(long long id) {
     this->id = id;
 }
 
@@ -116,18 +111,15 @@ void Student::setScore(float score) {
 
 char Student::getLevel() const { return level; }
 
-// ========== 文件操作 ==========
-
+/*文件操作*/
 void Student::writeToBinary(std::ofstream& out) const {
     if (!out.is_open()) {
         throw std::runtime_error("文件未打开");
     }
-
     // 写入字符串长度和内容
     size_t nameLength = name.length();
     out.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
     out.write(name.c_str(), nameLength);
-
     // 写入其他数据
     out.write(reinterpret_cast<const char*>(&id), sizeof(id));
     out.write(reinterpret_cast<const char*>(&score), sizeof(score));
@@ -169,8 +161,7 @@ void Student::readFromText(std::ifstream& in) {
     in >> name >> id >> score >> level;
 }
 
-// ========== 静态方法：管理多个学生 ==========
-
+/*静态方法：管理多个学生*/
 void Student::saveAllToBinary(const std::vector<Student>& students,
                               const std::string& filename) {
     std::ofstream out(filename, std::ios::binary);
@@ -243,8 +234,7 @@ std::vector<Student> Student::loadAllFromText(const std::string& filename) {
     return students;
 }
 
-// ========== 统计功能 ==========
-
+/*统计功能*/
 int Student::getTotalCount(const std::vector<Student>& students) {
     return static_cast<int>(students.size());
 }
@@ -276,9 +266,8 @@ void Student::getScoreDistribution(const std::vector<Student>& students,
     }
 }
 
-// ========== 查找/删除功能 ==========
-
-bool Student::deleteById(std::vector<Student>& students, int id) {
+/*查找/删除功能*/
+bool Student::deleteById(std::vector<Student>& students, long long id) {
     auto it = std::remove_if(students.begin(), students.end(),
                              [id](const Student& stu) { return stu.getId() == id; });
 
@@ -289,7 +278,7 @@ bool Student::deleteById(std::vector<Student>& students, int id) {
     return false;
 }
 
-Student* Student::findById(std::vector<Student>& students, int id) {
+Student* Student::findById(std::vector<Student>& students, long long id) {
     for (auto& stu : students) {
         if (stu.getId() == id) {
             return &stu;
